@@ -39,8 +39,8 @@
 # -e	e-value of BLAST	default:5e-2
 # -s	score of BLAST	default:0
 # -n	hitnumber of BLAST	default:50
-# -gs	grid line length of subject species	default:10M
-# -gq	grid line lenght of query species	default:10M
+# -gs	grid line length of subject,if none,input "0"	default:10M
+# -gq	grid line lenght of query,if none,input "0"	default:10M
 # -b	length of block	default:1M
 # -cs	selected subject chrmosome number	default:all
 # -cq	selected query chromosome number	default:all
@@ -57,9 +57,10 @@ use GD::Text::Align;
 # set parameter of figure
 my $frame_width=2000;
 my $frame_height=2000;
-my $left_curb=200;
-my $top_curb=200;
+my $left_curb=300;
+my $top_curb=300;
 my $img=GD::Image -> new($frame_width+1.5*$left_curb,$frame_height+1.5*$top_curb);
+
 
 ########################### total parameters below
 ##set variate
@@ -73,15 +74,21 @@ my $cen_qfile; #centromeric file
 my $ltr_qfile; #ltr file
 my $gff_qfile="os.chr.gff"; #gff file
 my $plot_file; #blast file for dotplot
-my $output_fig="draw.hv.tel.cen.jpg"; #output figure
+my $output_fig="hv.draw.repeat.jpg"; #output figure
 #set color
 my $white= $img->colorAllocate(255,255,255);
 my $black= $img->colorAllocate(0,0,0);
+my $gray= $img->colorAllocate(100,100,100);
+my $red= $img->colorAllocate(255,0,0);
+my $green= $img->colorAllocate(0,255,0);
+my $blue= $img->colorAllocate(0,0,255);
 my $mintcream= $img->colorAllocate(245,255,250);
 my $dodgerblue= $img->colorAllocate(30,144,255);
-my $red= $img->colorAllocate(255,0,0);
 my $darkviolet= $img->colorAllocate(148,0,211);
 my $orange= $img->colorAllocate(255,165,0);
+#font
+my $align = GD::Text::Align->new($img, valign => 'center', halign => 'center', color => $black);
+$align->set_font('Arial.ttf',34);
 #screen input
 my $poro="p";
 my $evalue=5e-2; #blast e-value for dotplot
@@ -124,7 +131,7 @@ my %querychr2plen; #chr -> chr total pos
 my %querychr2olen; #chr -> chr total order
 my %tempsort; # temp has for sorting to get order
 #read query gff and get gene pos, chr
-while (<QGFF>) {
+while (<QGFF>){
 	my @a=split("\t",$_);
 	if($a[2]>$a[3]){my $t=$a[3];$a[3]=$a[2];$a[2]=$t;} #make $a[3] as max
 	$querygene2pos{$a[1]} = $a[2]; # gene->pos
@@ -140,8 +147,7 @@ close($gff_qfile);
 #sort hash and get order
 my $geneNumOnAchr;
 my $lastchr = "";
-foreach my $key (sort {$tempsort{$a} <=> $tempsort{$b}} keys %tempsort)
-{
+foreach my $key (sort {$tempsort{$a} <=> $tempsort{$b}} keys %tempsort){
 	my @a=split('g',$tempsort{$key});
 	if($a[0] eq $lastchr){$geneNumOnAchr ++;}
     else{$geneNumOnAchr = 1;}
@@ -162,7 +168,7 @@ my %sbjctchr2plen; #chr -> chr total pos
 my %sbjctchr2olen; #chr -> chr total order
 my %tempsort; # temp has for sorting to get order
 #read query gff and get gene pos, chr
-while (<SGFF>) {
+while (<SGFF>){
 	my @a=split("\t",$_);
 	if($a[2]>$a[3]){my $t=$a[3];$a[3]=$a[2];$a[2]=$t;} #make $a[3] as max
 	$sbjctgene2pos{$a[1]} = $a[2]; # gene->pos
@@ -178,8 +184,7 @@ close($gff_sfile);
 #sort hash and get order
 my $geneNumOnAchr;
 my $lastchr = "";
-foreach my $key (sort {$tempsort{$a} <=> $tempsort{$b}} keys %tempsort)
-{
+foreach my $key (sort {$tempsort{$a} <=> $tempsort{$b}} keys %tempsort){
 	my @a=split('g',$tempsort{$key});
 	if($a[0] eq $lastchr){$geneNumOnAchr ++;}
     else{$geneNumOnAchr = 1;}
@@ -196,9 +201,9 @@ undef(%tempsort);
 my @querychrlen = ();
 my %querychr2order;
 #if selected chr is all chr, change chrn_ to all chr number
-if ($chrn_q eq "all") {
+if ($chrn_q eq "all"){
 	my @a=();
-	foreach my $key (sort keys %querychr2plen){push(@a,$key);}
+	foreach my $key (sort{$a<=>$b} keys %querychr2plen){push(@a,$key);}
 	$chrn_q=join("_",@a);
 }
 my @querychr=split('_',$chrn_q);
@@ -206,42 +211,36 @@ my @querychr=split('_',$chrn_q);
 my @sbjctchrlen = ();
 my %sbjctchr2order;
 #if selected chr is all chr, change chrn_ to all chr number
-if ($chrn_s eq "all") {
+if ($chrn_s eq "all"){
 	my @a=();
-	foreach my $key (sort keys %sbjctchr2plen){push(@a,$key);}
-	$chrn_q=join("_",@a);
+	foreach my $key (sort{$a<=>$b} keys %sbjctchr2plen){push(@a,$key);}
+	$chrn_s=join("_",@a);
 }
 my @sbjctchr=split('_',$chrn_s);
-if($poro eq "p")
-{
-	for(my $i=0; $i<=$#querychr; $i++)
-	{
+if($poro eq "p"){
+	for(my $i=0; $i<=$#querychr; $i++){
 		$querychr[$i]=~s/[^0-9]//g;
 		my $chr = int($querychr[$i]);
 		$querychrlen[$#querychrlen+1] = $querychr2plen{$chr}; #sum length
 		$querychr2order{$chr} = $#querychrlen; #total order
 	}
 
-	for(my $i=0; $i<=$#sbjctchr; $i++)
-	{
+	for(my $i=0; $i<=$#sbjctchr; $i++){
 		$sbjctchr[$i]=~s/[^0-9]//g;
 		my $chr = int($sbjctchr[$i]);
 		$sbjctchrlen[$#sbjctchrlen+1] = $sbjctchr2plen{$chr}; #sum length
 		$sbjctchr2order{$chr} = $#sbjctchrlen; #total order
 	}
 }
-else
-{
-	for(my $i=0; $i<=$#querychr; $i++)
-	{
+else{
+	for(my $i=0; $i<=$#querychr; $i++){
 		$querychr[$i]=~s/[^0-9]//g;
 		my $chr = int($querychr[$i]);
 		$querychrlen[$#querychrlen+1] = $querychr2olen{$chr}; #sum length
 		$querychr2order{$chr} = $#querychrlen; #total order
 	}
 
-	for(my $i=0; $i<=$#sbjctchr; $i++)
-	{
+	for(my $i=0; $i<=$#sbjctchr; $i++){
 		$sbjctchr[$i]=~s/[^0-9]//g;
 		my $chr = int($sbjctchr[$i]);
 		$sbjctchrlen[$#sbjctchrlen+1] = $sbjctchr2olen{$chr}; #sum length
@@ -261,14 +260,116 @@ my $scale_ratio2 = $genome2_length/($frame_height);## vertical
 ###############################OK, finished all parameters setting
 
 ############################### Let's draw dotplot
-# draw the frame and the saprating lines corresponding to chromosome borders
+# draw the frame of dotplot part and the saprating lines corresponding to chromosome borders
 $img -> interlaced('true');
+#frame
 $img -> rectangle($left_curb*1.25,$top_curb*1.25,$left_curb*1.25+$frame_width,$top_curb*1.25+$frame_height,$black);
+$img -> rectangle($left_curb*1.25-1,$top_curb*1.25-1,$left_curb*1.25+$frame_width+1,$top_curb*1.25+$frame_height+1,$black);
+#lines
+my @query_chro_pos = ();
+my @sbjct_chro_pos = ();
 
-
-
-
-
+my $accumulated_length = 0;
+for(my $i=0; $i<=$#querychrlen; $i++){
+   my $posy1 = $top_curb*1.25;   
+   my $posy2 = $top_curb*1.25 + $frame_height;
+#draw grid line
+   if($grid_q != 0){     
+	   for(my $sum_len1 = $grid_q;$sum_len1<$querychrlen[$i];$sum_len1+=$grid_q){
+			my $posx0 = $left_curb*1.25 + int(($accumulated_length+$sum_len1)/$scale_ratio1);
+			$img -> line($posx0, $posy1, $posx0, $posy2, $green);
+	   }
+   }
+   #draw lines between chromosome
+   $accumulated_length += $querychrlen[$i];
+   my $length = int($querychrlen[$i]/$scale_ratio1);
+   my $posx1 = $left_curb*1.25 + int($accumulated_length/$scale_ratio1);
+   $query_chro_pos[$i] = $posx1;
+   my $posx2 = $posx1;
+   $img -> line($posx1, $posy1, $posx2, $posy2, $black);
+   $img -> line($posx1+1, $posy1, $posx2+1, $posy2, $black);
+   # plot chromosome number
+   my $chr = $querychr[$i];
+   $align->set_text($chr);
+   $align->draw($posx1-int($length/2),50,0);   
+}
+#sbjct lines and grid lines
+$accumulated_length = 0;
+for(my $i=0; $i<=$#sbjctchrlen; $i++){
+   my $posx1 = $left_curb*1.25;
+   my $posx2 = $left_curb*1.25+$frame_width;
+   #grid lines
+   if($grid_s != 0){     
+	   for(my $sum_len2 = $grid_s;$sum_len2<$sbjctchrlen[$i];$sum_len2+=$grid_s){
+			my $posy0 = $top_curb*1.25 + int(($accumulated_length+$sum_len2)/$scale_ratio2);
+			$img -> line($posx1, $posy0, $posx2, $posy0, $green);
+	   }
+   }
+   #lines between chromosomes
+   $accumulated_length += $sbjctchrlen[$i];
+   my $length = int($sbjctchrlen[$i]/$scale_ratio2);
+   my $posy1 = $top_curb*1.25 + int($accumulated_length/$scale_ratio2);
+   $sbjct_chro_pos[$i] = $posy1;
+   my $posy2 = $posy1;
+   $img -> line($posx1, $posy1, $posx2, $posy2, $black);
+   $img -> line($posx1, $posy1+1, $posx2, $posy2+1, $black);
+   #chromosome numbers
+   my $chr = $sbjctchr[$i];
+   $align->set_text($chr);
+   $align->draw(50, $posy1-int($length/2), 1.57);
+}
+###########
+###########start draw dot
+open(DOT,$plot_file) or die "can't open blast file for dotplot.\n";
+my $lastquery = "";
+my $hitnum = 0;
+while(<DOT>){
+   $_ =~ s/[\n\r]//g;
+   my ($querygene, $sbjctgene, $identity, $matchlen, $mismatchnum, $gaplen, $querystart, $queryend, $sbjctstart, $sbjctend, $evalue, $score) = split(/\t/, $_);
+   my $querychr = $querygene2chr{$querygene};
+   my $sbjctchr = $sbjctgene2chr{$sbjctgene};
+# only selected chromosome;
+   my $is2skip1 = 1;
+   for(my $i=0; $i<=$#querychr; $i++){if($querychr eq $querychr[$i]){$is2skip1 = 0; last;}}
+   my $is2skip2 = 1;
+   for(my $i=0; $i<=$#sbjctchr; $i++){if($sbjctchr eq $sbjctchr[$i]){$is2skip2 = 0; last;}}
+   if($is2skip1 eq 1 || $is2skip2 eq 1){next;}
+# max hit can not more than HITNUM;
+   if($lastquery ne $querygene){$hitnum = 1;$lastquery = $querygene;}
+   else{$hitnum ++;}
+   if($hitnum > $HITNUM){next;}
+# blast score should be more than SCORE
+   if($score < $SCORE){next;}
+# e-value should be less than EVALUE
+   if($evalue > $EVALUE){next;}
+# get x, y value of dot
+   my ($posx1, $posy1, $posx2, $posy2, $selfhit1x, $selfhit1y, $selfhit2x, $selfhit2y);
+   if($ARGV[5] eq "order"){
+      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb + $querygene2order{$querygene}/$scale_ratio1;}
+      else{$posx1 = $query_chro_pos[$querychr2order{$querychr}-1] + $querygene2order{$querygene}/$scale_ratio1;}
+      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb + $sbjctgene2order{$sbjctgene}/$scale_ratio2;}
+      else{$posy1 = $sbjct_chro_pos[$sbjctchr2order{$sbjctchr}-1] +  $sbjctgene2order{$sbjctgene}/$scale_ratio2;}
+   }
+   elsif($ARGV[5] eq "pos"){
+      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb + $querygene2pos{$querygene}/$scale_ratio1;}
+      else{$posx1 = $query_chro_pos[$querychr2order{$querychr}-1] + $querygene2pos{$querygene}/$scale_ratio1;}
+      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb + $sbjctgene2pos{$sbjctgene}/$scale_ratio2;}
+      else{$posy1 = $sbjct_chro_pos[$sbjctchr2order{$sbjctchr}-1] +  $sbjctgene2pos{$sbjctgene}/$scale_ratio2;}
+    }  
+# set dot's color
+   my $color = $gray;
+   if($hitnum == 1){$color = $red;}
+   elsif($hitnum == 2){$color = $blue;}
+# draw dot
+   $img -> filledRectangle($posx1, $posy1, $posx1+1, $posy1+1, $color);
+}
+close($plot_file);
+############################################################################
+#########Bravo, now, finished all dotplot part drawing!
+############################################################################
+#########From here, start to add some others into figure
+####add color bar abut two sides of dotplot
+my $bar_qua=4;
 
 
 
@@ -277,12 +378,6 @@ open(FIG,">".$output_fig) or die "can't open figure!\n";
 binmode FIG;
 print FIG $img -> jpeg;
 close(FIG);
-
-
-
-
-
-
 sub sum_chr_len()
 {
    my @chrlen = @_;
