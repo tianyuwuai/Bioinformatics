@@ -44,8 +44,8 @@
 # -b  length of block default:1M
 # -cs selected subject chrmosome number default:all
 # -cq selected query chromosome number  default:all
-# -vc boundary value of centromeric default:0.04_0.08
-# -vt boundary value of telomeric default:0.05_0.1
+# -vc boundary value of centromeric default:0.00001_0.00003
+# -vt boundary value of telomeric default:0.00001_0.00003
 # -vl boundary value of LTR default:0.005_0.05
 # -vg boundary value of cds default:0.005_0.05
 ############################################
@@ -68,13 +68,19 @@ my $img=GD::Image -> new($frame_width+1.5*$left_curb,$frame_height+1.5*$top_curb
 my $tel_sfile="telomeric.hv.1e-3.blastn.m8"; #telomeric file
 my $cen_sfile="hv.genome.hv.centromeric.blastn.m8"; #centromeric file
 my $ltr_sfile="hv.ltr.txt"; #ltr file
-my $gff_sfile="os.chr.gff"; #gff file
+my $gff_sfile="hv.new.gff"; #gff file
 my $tel_qfile="os.telomeric.telomere.associated.1e-3.blastn.m8"; #telomeric file
 my $cen_qfile="os.genome.os.centro.1e-3.blastn.m8"; #centromeric file
 my $ltr_qfile="os.ltr.txt"; #ltr file
-my $gff_qfile="os.chr.gff"; #gff file
+my $gff_qfile="os.new.gff"; #gff file
 my $plot_file="os.hv.cds.blastn.m8.new"; #blast file for dotplot
 my $output_fig="hv.draw.repeat.jpg"; #output figure
+#special parameters
+my $poro="p";
+my $queryspe="Os";
+my $sbjctspe="Hv";
+my $len_sfile="hv.genome.len"; #special demand
+my $len_qfile="os.genome.len"; #special demand
 #set color
 my $white= $img->colorAllocate(255,255,255);
 my $black= $img->colorAllocate(0,0,0);
@@ -90,24 +96,23 @@ my $orange= $img->colorAllocate(255,165,0);
 my $align = GD::Text::Align->new($img, valign => 'center', halign => 'center', color => $black);
 $align->set_font('Arial.ttf',34);
 #screen input
-my $poro="p";
-my $evalue=5e-2; #blast e-value for dotplot
-my $score=0; #blast score for dotplot filter
-my $hitnum=50; #blast hitnumber for dotplot
+my $_evalue=5e-2; #blast e-value for dotplot
+my $_score=0; #blast score for dotplot filter
+my $_hitnum=50; #blast hitnumber for dotplot
 my $grid_s=10000000; #sbjct-speci-grid length
 my $grid_q=10000000; #query-speci-grid length
 my $chrn_s="all"; #selected chromosome of sbjct
 my $chrn_q="all"; #selected chromosome of query
 my $myblock=1000000; #length of block
-my $val_cen="0.04_0.08"; #value of centromeric
-my $val_tel="0.05_0.1"; #boundary value of telomeric
-my $val_ltr="0.005_0.05"; #value of LTR
-my $val_cds="0.005_0.05"; #value of cds
+my $val_cen="0.00005_0.001"; #value of centromeric
+my $val_tel="0.00001_0.00003"; #boundary value of telomeric
+my $val_ltr="0.0005_0.35"; #value of LTR
+my $val_cds="0.0005_0.35"; #value of cds
 #get variate
 Getopt::Long::GetOptions(
-  'e=f' => \$evalue,
-  's=i' => \$score,
-  'n=i' => \$hitnum,
+  'e=f' => \$_evalue,
+  's=i' => \$_score,
+  'n=i' => \$_hitnum,
   'gs=i' => \$grid_s,
   'gq=i' => \$grid_q,
   'b=i' => \$myblock,
@@ -122,11 +127,12 @@ my @vcarr=split('_',$val_cen);
 my @vtarr=split('_',$val_tel);
 my @vlarr=split('_',$val_ltr);
 my @vgarr=split('_',$val_cds);
-#set color parameters
+#set color bars parameters
 my $bar_qua=4;
 my $linespacing=8;
-my $lineheight=($top_curb-($bar_qua-1)*$linespacing)/$bar_qua;
-my $columewidth=($left_curb-($bar_qua-1)*$linespacing)/$bar_qua;
+my $lineheight=$top_curb/$bar_qua-$linespacing;
+my $columewidth=$left_curb/$bar_qua-$linespacing;
+my @legend=("a","b","c","d");
 ########################################
 
 ###################### start dotplot part
@@ -205,6 +211,24 @@ foreach my $key (sort {$tempsort{$a} <=> $tempsort{$b}} keys %tempsort){
 }
 undef(%tempsort);
 ####### end read gff file
+
+##################################special demand, use genome length as the whole chromosome length
+open(QL,$len_qfile) or die "can't open query len file.\n";
+while (<QL>) {
+  $_=~s/[\r\n]//g;
+  my @a =split(/\s+/,$_);
+  $querychr2plen{$a[0]}=$a[1];
+}
+close($len_qfile);
+open(SL,$len_sfile) or die "can't open sbjct len file.\n";
+while (<SL>) {
+  $_=~s/[\r\n]//g;
+  my @a=split(/\s+/,$_);
+  $sbjctchr2plen{$a[0]}=$a[1];
+}
+close($len_sfile);
+
+#############################################################################end special
 
 ############### get selected chromosome total length and order
 my @querychrlen = ();
@@ -285,8 +309,8 @@ for(my $i=0; $i<=$#querychrlen; $i++){
 #draw grid line
    if($grid_q != 0){     
      for(my $sum_len1 = $grid_q;$sum_len1<$querychrlen[$i];$sum_len1+=$grid_q){
-      my $posx0 = $left_curb*1.25 + int(($accumulated_length+$sum_len1)/$scale_ratio1);
-      $img -> line($posx0, $posy1, $posx0, $posy2, $green);
+       my $posx0 = $left_curb*1.25 + int(($accumulated_length+$sum_len1)/$scale_ratio1);
+       $img -> line($posx0, $posy1, $posx0, $posy2, $green);
      }
    }
    #draw lines between chromosome
@@ -299,7 +323,7 @@ for(my $i=0; $i<=$#querychrlen; $i++){
    $img -> line($posx1+1, $posy1, $posx2+1, $posy2, $black);
    # plot chromosome number
    my $chr = $querychr[$i];
-   $align->set_text($chr);
+   $align->set_text($queryspe.$chr);
    $align->draw($posx1-int($length/2),50,0);   
 }
 #sbjct lines and grid lines
@@ -310,8 +334,8 @@ for(my $i=0; $i<=$#sbjctchrlen; $i++){
    #grid lines
    if($grid_s != 0){     
      for(my $sum_len2 = $grid_s;$sum_len2<$sbjctchrlen[$i];$sum_len2+=$grid_s){
-      my $posy0 = $top_curb*1.25 + int(($accumulated_length+$sum_len2)/$scale_ratio2);
-      $img -> line($posx1, $posy0, $posx2, $posy0, $green);
+       my $posy0 = $top_curb*1.25 + int(($accumulated_length+$sum_len2)/$scale_ratio2);
+       $img -> line($posx1, $posy0, $posx2, $posy0, $green);
      }
    }
    #lines between chromosomes
@@ -324,7 +348,7 @@ for(my $i=0; $i<=$#sbjctchrlen; $i++){
    $img -> line($posx1, $posy1+1, $posx2, $posy2+1, $black);
    #chromosome numbers
    my $chr = $sbjctchr[$i];
-   $align->set_text($chr);
+   $align->set_text($sbjctspe.$chr);
    $align->draw(50, $posy1-int($length/2), 1.57);
 }
 ###########
@@ -346,23 +370,23 @@ while(<DOT>){
 # max hit can not more than HITNUM;
    if($lastquery ne $querygene){$hitnum = 1;$lastquery = $querygene;}
    else{$hitnum ++;}
-   if($hitnum > $HITNUM){next;}
+   if($hitnum > $_hitnum){next;}
 # blast score should be more than SCORE
-   if($score < $SCORE){next;}
+   if($score < $_score){next;}
 # e-value should be less than EVALUE
-   if($evalue > $EVALUE){next;}
+   if($evalue > $_evalue){next;}
 # get x, y value of dot
    my ($posx1, $posy1, $posx2, $posy2, $selfhit1x, $selfhit1y, $selfhit2x, $selfhit2y);
-   if($ARGV[5] eq "order"){
-      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb + $querygene2order{$querygene}/$scale_ratio1;}
+   if($poro eq "o"){
+      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb*1.25 + $querygene2order{$querygene}/$scale_ratio1;}
       else{$posx1 = $query_chro_pos[$querychr2order{$querychr}-1] + $querygene2order{$querygene}/$scale_ratio1;}
-      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb + $sbjctgene2order{$sbjctgene}/$scale_ratio2;}
+      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb*1.25 + $sbjctgene2order{$sbjctgene}/$scale_ratio2;}
       else{$posy1 = $sbjct_chro_pos[$sbjctchr2order{$sbjctchr}-1] +  $sbjctgene2order{$sbjctgene}/$scale_ratio2;}
-   }
-   elsif($ARGV[5] eq "pos"){
-      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb + $querygene2pos{$querygene}/$scale_ratio1;}
+    }
+   elsif($poro eq "p"){
+      if($querychr2order{$querychr} eq 0){$posx1 = $left_curb*1.25 + $querygene2pos{$querygene}/$scale_ratio1;}
       else{$posx1 = $query_chro_pos[$querychr2order{$querychr}-1] + $querygene2pos{$querygene}/$scale_ratio1;}
-      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb + $sbjctgene2pos{$sbjctgene}/$scale_ratio2;}
+      if($sbjctchr2order{$sbjctchr} eq 0){$posy1 = $top_curb*1.25 + $sbjctgene2pos{$sbjctgene}/$scale_ratio2;}
       else{$posy1 = $sbjct_chro_pos[$sbjctchr2order{$sbjctchr}-1] +  $sbjctgene2pos{$sbjctgene}/$scale_ratio2;}
     }  
 # set dot's color
@@ -370,7 +394,8 @@ while(<DOT>){
    if($hitnum == 1){$color = $red;}
    elsif($hitnum == 2){$color = $blue;}
 # draw dot
-   $img -> filledRectangle($posx1, $posy1, $posx1+1, $posy1+1, $color);
+   
+   $img -> filledRectangle($posx1, $posy1, $posx1+3, $posy1+3, $color);
 }
 close($plot_file);
 ############################################################################
@@ -384,7 +409,13 @@ for(my $i=0;$i<$bar_qua;$i++){
   #draw top
   $img -> filledRectangle($left_curb*1.25,$top_curb*0.25+$i*($lineheight+$linespacing),$left_curb*1.25+$frame_width,$top_curb*0.25+$i*($lineheight+$linespacing)+$lineheight,$dodgerblue);
   #draw left
-  $img -> filledRectangle($left_curb*0.25+$i*($columewidth+$linespacing),$top_curb*1.25,$left_curb*0.25+$i*($columewidth+$linespacing)+$frame_height,$top_curb*1.25+$columewidth,$dodgerblue);
+  $img -> filledRectangle($left_curb*0.25+$i*($columewidth+$linespacing),$top_curb*1.25,$left_curb*0.25+$i*($columewidth+$linespacing)+$columewidth,$top_curb*1.25+$frame_height,$dodgerblue);
+  #draw figure legend
+  $img -> filledArc($left_curb*1.25-$linespacing,$top_curb*1.25-$linespacing,2*($left_curb-$linespacing-$i*($columewidth+$linespacing)),2*($top_curb-$linespacing-$i*($lineheight+$linespacing)),180,270,$dodgerblue);
+  $img -> filledArc($left_curb*1.25-$linespacing,$top_curb*1.25-$linespacing,2*($left_curb-$linespacing-$columewidth-$i*($columewidth+$linespacing)),2*($top_curb-$linespacing-$lineheight-$i*($lineheight+$linespacing)),180,270,$white);
+  $align->set_text($legend[$i]);
+  $align->draw($left_curb*1.25-$linespacing-($left_curb-$linespacing-$i*($columewidth+$linespacing))*sqrt(2)/2+$columewidth/3, $top_curb*1.25-$linespacing-($top_curb-$linespacing-$i*($lineheight+$linespacing))*sqrt(2)/2+$lineheight/3, 0.785);
+
 }
 
 my %hash_staarr;
@@ -449,7 +480,7 @@ undef %hash_staarr; undef %hash_endarr;
 drawblock("vl",3,"q");
 
 # # read query cds file and draw hot map
-open(QGF,$cds_qfile) or die "can't open query cds file.\n";
+open(QGF,$gff_qfile) or die "can't open query cds file.\n";
 while(<QGF>){
   my @linearr=split(/\s+/,$_);
   $linearr[0]=~s/[^0-9]//g;
@@ -460,7 +491,7 @@ while(<QGF>){
   push(@{$hash_staarr{$chr}},$start);
   push(@{$hash_endarr{$chr}},$end);
 }
-close($cds_qfile);
+close($gff_qfile);
 #union sets
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
@@ -526,7 +557,7 @@ undef %hash_staarr; undef %hash_endarr;
 drawblock("vl",3,"s");
 
 # # read sbjct cds file and draw hot map
-open(SGF,$cds_sfile) or die "can't open sbjct cds file.\n";
+open(SGF,$gff_sfile) or die "can't open sbjct cds file.\n";
 while(<SGF>){
   my @linearr=split(/\s+/,$_);
   $linearr[0]=~s/[^0-9]//g;
@@ -537,12 +568,13 @@ while(<SGF>){
   push(@{$hash_staarr{$chr}},$start);
   push(@{$hash_endarr{$chr}},$end);
 }
-close($cds_sfile);
+close($gff_sfile);
 #union sets
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
 drawblock("vg",4,"s");
+
 
 
 open(FIG,">".$output_fig) or die "can't open figure!\n";
@@ -560,15 +592,15 @@ sub sum_chr_len(){
    return $sumlen;
 }
 sub merge_hash(){
-  foreach my $key (sort keys %hash_staarr)  {
+  foreach my $key (sort{$a<=>$b} keys %hash_staarr)  {
     # sort each location array
     @{$hash_staarr{$key}}=sort {$a<=>$b} @{$hash_staarr{$key}};
     @{$hash_endarr{$key}}=sort {$a<=>$b} @{$hash_endarr{$key}};
     # push all braskpoints
     my $min=int(@{$hash_staarr{$key}}[0]/$myblock)+1;
     my $max=int(@{$hash_endarr{$key}}[-1]/$myblock)+1;
-    #print $min." ".$max."\n";
-    for($min;$min<$max;$min++)    {
+    #print $key." ".$min." ".$max."\n";
+    for($min;$min<$max;$min++){
       push(@{$hash_staarr{$key}},$min*$myblock+1.5);
       push(@{$hash_endarr{$key}},$min*$myblock);
     }
@@ -582,6 +614,7 @@ sub merge_hash(){
         if(@{$hash_endarr{$key}}[$i]<@{$hash_staarr{$key}}[$i+1]-1||$i+1==@{$hash_staarr{$key}}||@{$hash_endarr{$key}}[$i]%$myblock==0){
           push(@{$hash_merge{$key}},$value_s);
           push(@{$hash_merge{$key}},@{$hash_endarr{$key}}[$i]);
+          #print $key." ".$value_s." ".@{$hash_endarr{$key}}[$i]."\n";
           if(@{$hash_endarr{$key}}[$i]%$myblock==0){
             $value_s=@{$hash_endarr{$key}}[$i]+1;next;
           }
@@ -599,7 +632,7 @@ sub drawblock{
   my $index=$_[1];#which line
   my $type=$_[0];#what is it
   #get hot values
-  foreach my $key (sort keys %hash_merge){
+  foreach my $key (sort{$a<=>$b} keys %hash_merge){
     for (my $i = 0; $i+1 < @{$hash_merge{$key}};$i+=2){
       $hash_cover{$key}{int(@{$hash_merge{$key}}[$i]/$myblock)+1}+=@{$hash_merge{$key}}[$i+1]-@{$hash_merge{$key}}[$i]+1;     
     }
@@ -608,6 +641,7 @@ sub drawblock{
   foreach my $key (sort keys %hash_cover){
     foreach my $sec_key (sort keys %{$hash_cover{$key}}){
       my $cover=%{$hash_cover{$key}}{$sec_key}/$myblock;
+      #print $cover."\n";
       my $color=$dodgerblue;
       #get color by hot value
       $color=setcolor($type,$cover);
@@ -618,7 +652,7 @@ sub drawblock{
         if($querychr2order{$key} eq 0){$posx1 = $left_curb*1.25 + ($sec_key-1)*$myblock/$scale_ratio1;}
         else{$posx1 = $query_chro_pos[$querychr2order{$key}-1] + ($sec_key-1)*$myblock/$scale_ratio1;}
         my $posx2=$posx1+$myblock/$scale_ratio1;
-        $img -> filledRectangle($posx1,$top_curb*0.25+($index-1)*($line_height+$linespacing),$posx2,$top_curb*0.25+($index-1)*($line_height+$linespacing)+$lineheight,$color);
+        $img -> filledRectangle($posx1,$top_curb*0.25+($index-1)*($lineheight+$linespacing),$posx2,$top_curb*0.25+($index-1)*($lineheight+$linespacing)+$lineheight,$color);
       }
       #sbjct
       elsif($q_or_s eq "s"){
@@ -637,21 +671,21 @@ sub setcolor{
   if ($type eq "vt") {
     if($value<=$vtarr[0]){return $dodgerblue;}
     elsif($value<=$vtarr[1]){return $orange;}
-    elsif($value<=$vtarr[2]){return $red;}
+    else{return $red;}
   }
   elsif($type eq "vc"){
     if($value<=$vcarr[0]){return $dodgerblue;}
     elsif($value<=$vcarr[1]){return $orange;}
-    elsif($value<=$vcarr[2]){return $red;}
+    else{return $red;}
   }
   elsif($type eq "vl"){
     if($value<=$vlarr[0]){return $dodgerblue;}
     elsif($value<=$vlarr[1]){return $orange;}
-    elsif($value<=$vlarr[2]){return $red;}
+    else{return $red;}
   }
   elsif($type eq "vg"){
     if($value<=$vgarr[0]){return $dodgerblue;}
     elsif($value<=$vgarr[1]){return $orange;}
-    elsif($value<=$vgarr[2]){return $red;}
+    else{return $red;}
   }
 }
