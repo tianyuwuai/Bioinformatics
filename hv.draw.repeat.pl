@@ -11,7 +11,7 @@
 #########
 # second demand: 
 # need a dotplot and some color bars abut the sides of dotplot
-# this script need 2 all-gene-gff files, a BLAST M8 file for dotplot, 2 BLAST M8 files for 2 speci-telmeric,
+# this script need 2 all-gene-gff files, 2 genome len files, a BLAST M8 file for dotplot, 2 BLAST M8 files for 2 speci-telmeric,
 # 2 BLAST M8 files for 2 speci-centromeric, 2 LTR files for LTR heat map.
 #########
 # files format:
@@ -34,20 +34,26 @@
 # I also put some parameters ahead the script, for example colors array, input file names. It can be changed conveniently.
 
 # It is a example input command below:
-# perl hv.draw.repeat.pl -e 1e-5 -s 200 -n 10 -gs 10000000 -gq 10000000 -cs 1_3_6 -cq 2_5 -b 1000000 -vc 0.4_0.8 -vt 0.05_0.1 -vl 0.0005_0.003 -vg 0.005_0.01
+# perl hv.draw.repeat.pl -e 1e-5 -s 200 -n 10 -gs 10000000 -gq 10000000 -cs 1_3_6 -cq 2_5 -bs 1000000 -bq 1000000 -qc 0.4_0.8 -qt 0.05_0.1 -ql 0.0005_0.003 -qg 0.005_0.01 -sc 0.4_0.8 -st 0.05_0.1 -sl 0.0005_0.003 -sg 0.005_0.01  -dp 3
 ####### parameters:
 # -e  e-value of BLAST  default:5e-2
 # -s  score of BLAST  default:0
 # -n  hitnumber of BLAST  default:50
 # -gs grid line length of subject,if none,input "0" default:10M
 # -gq grid line lenght of query,if none,input "0" default:10M
-# -b  length of block default:1M
+# -bq  length of block of query default:1M
+# -bs  length of block of sbjct default:1M
 # -cs selected subject chrmosome number default:all
 # -cq selected query chromosome number  default:all
-# -vc boundary value of centromeric default:0.00001_0.00003
-# -vt boundary value of telomeric default:0.00001_0.00003
-# -vl boundary value of LTR default:0.005_0.05
-# -vg boundary value of cds default:0.005_0.05
+# -qc boundary value of centromeric default:0.00001_0.00003
+# -qt boundary value of telomeric default:0.00001_0.00003
+# -ql boundary value of LTR default:0.005_0.05
+# -qg boundary value of cds default:0.005_0.05
+# -sc boundary value of centromeric default:0.00001_0.00003
+# -st boundary value of telomeric default:0.00001_0.00003
+# -sl boundary value of LTR default:0.005_0.05
+# -sg boundary value of cds default:0.005_0.05
+# -dp dot's pix in dotplot default:2
 ############################################
 
 use strict;
@@ -103,11 +109,17 @@ my $grid_s=10000000; #sbjct-speci-grid length
 my $grid_q=10000000; #query-speci-grid length
 my $chrn_s="all"; #selected chromosome of sbjct
 my $chrn_q="all"; #selected chromosome of query
-my $myblock=1000000; #length of block
-my $val_cen="0.00005_0.001"; #value of centromeric
-my $val_tel="0.00001_0.00003"; #boundary value of telomeric
-my $val_ltr="0.0005_0.35"; #value of LTR
-my $val_cds="0.0005_0.35"; #value of cds
+my $myblock_q=1000000; #length of block of query
+my $myblock_s=1000000; #length of block of sbjct
+my $valq_cen="0.00005_0.001"; #value of centromeric
+my $valq_tel="0.00001_0.00003"; #boundary value of telomeric
+my $valq_ltr="0.0005_0.35"; #value of LTR
+my $valq_cds="0.0005_0.35"; #value of cds
+my $vals_cen="0.00005_0.001"; #value of centromeric
+my $vals_tel="0.00001_0.00003"; #boundary value of telomeric
+my $vals_ltr="0.0005_0.35"; #value of LTR
+my $vals_cds="0.0005_0.35"; #value of cds
+my $dot_pix=2; #dot pix in dotplot
 #get variate
 Getopt::Long::GetOptions(
   'e=f' => \$_evalue,
@@ -115,18 +127,28 @@ Getopt::Long::GetOptions(
   'n=i' => \$_hitnum,
   'gs=i' => \$grid_s,
   'gq=i' => \$grid_q,
-  'b=i' => \$myblock,
+  'bq=i' => \$myblock_q,
+  'bs=i' => \$myblock_s,
   'cs=s' => \$chrn_s,
   'cq=s' => \$chrn_q,
-  'vc=s' => \$val_cen,
-  'vt=s' => \$val_tel,
-  'vl=s' => \$val_ltr,
-  'vg=s' => \$val_cds);
+  'qc=s' => \$valq_cen,
+  'qt=s' => \$valq_tel,
+  'ql=s' => \$valq_ltr,
+  'qg=s' => \$valq_cds,
+  'sc=s' => \$vals_cen,
+  'st=s' => \$vals_tel,
+  'sl=s' => \$vals_ltr,
+  'sg=s' => \$vals_cds,
+  'dp=i' => \$dot_pix);
 #get values array of hot map color standar
-my @vcarr=split('_',$val_cen);
-my @vtarr=split('_',$val_tel);
-my @vlarr=split('_',$val_ltr);
-my @vgarr=split('_',$val_cds);
+my @qcarr=split('_',$valq_cen);
+my @qtarr=split('_',$valq_tel);
+my @qlarr=split('_',$valq_ltr);
+my @qgarr=split('_',$valq_cds);
+my @scarr=split('_',$vals_cen);
+my @starr=split('_',$vals_tel);
+my @slarr=split('_',$vals_ltr);
+my @sgarr=split('_',$vals_cds);
 #set color bars parameters
 my $bar_qua=4;
 my $linespacing=8;
@@ -395,7 +417,7 @@ while(<DOT>){
    elsif($hitnum == 2){$color = $blue;}
 # draw dot
    
-   $img -> filledRectangle($posx1, $posy1, $posx1+3, $posy1+3, $color);
+   $img -> filledArc($posx1, $posy1, $dot_pix, $dot_pix,0,360,$color);
 }
 close($plot_file);
 ############################################################################
@@ -422,6 +444,8 @@ my %hash_staarr;
 my %hash_endarr;
 my %hash_merge;
 my %hash_cover;
+my $myblock;
+$myblock=$myblock_q;
 # # read query tel file and draw hot map
 open(QTF,$tel_qfile) or die "can't open query telomeric file";
 while(<QTF>){
@@ -439,7 +463,7 @@ close($tel_qfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vt",1,"q");
+drawblock("qt",1,"q");
 
 # # read query cen file and draw hot map
 open(QCF,$cen_qfile) or die "can't open query centromeric file.\n";
@@ -458,7 +482,7 @@ close($cen_qfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vc",2,"q");
+drawblock("qc",2,"q");
 
 # # read query ltr file and draw hot map
 open(QLF,$ltr_qfile) or die "can't open query ltr file.\n";
@@ -477,7 +501,7 @@ close($ltr_qfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vl",3,"q");
+drawblock("ql",3,"q");
 
 # # read query cds file and draw hot map
 open(QGF,$gff_qfile) or die "can't open query cds file.\n";
@@ -496,10 +520,11 @@ close($gff_qfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vg",4,"q");
+drawblock("qg",4,"q");
 
 
 # # read sbjct tel file and draw hot map
+$myblock=$myblock_s;
 open(STF,$tel_sfile) or die "can't open sbjct telomeric file";
 while(<STF>){
   my @linearr=split(/\s+/,$_);
@@ -516,7 +541,7 @@ close($tel_sfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vt",1,"s");
+drawblock("st",1,"s");
 
 # # read sbjct cen file and draw hot map
 open(SCF,$cen_sfile) or die "can't open sbjct centromeric file.\n";
@@ -535,7 +560,7 @@ close($cen_sfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vc",2,"s");
+drawblock("sc",2,"s");
 
 # # read sbjct ltr file and draw hot map
 open(SLF,$ltr_sfile) or die "can't open sbjct ltr file.\n";
@@ -554,7 +579,7 @@ close($ltr_sfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vl",3,"s");
+drawblock("sl",3,"s");
 
 # # read sbjct cds file and draw hot map
 open(SGF,$gff_sfile) or die "can't open sbjct cds file.\n";
@@ -573,7 +598,7 @@ close($gff_sfile);
 merge_hash();
 undef %hash_staarr; undef %hash_endarr;
 #draw map
-drawblock("vg",4,"s");
+drawblock("sg",4,"s");
 
 
 
@@ -668,24 +693,44 @@ sub drawblock{
 }
 sub setcolor{
   my $type=$_[0]; my $value=$_[1];
-  if ($type eq "vt") {
-    if($value<=$vtarr[0]){return $dodgerblue;}
-    elsif($value<=$vtarr[1]){return $orange;}
+  if ($type eq "qt") {
+    if($value<=$qtarr[0]){return $dodgerblue;}
+    elsif($value<=$qtarr[1]){return $orange;}
     else{return $red;}
   }
-  elsif($type eq "vc"){
-    if($value<=$vcarr[0]){return $dodgerblue;}
-    elsif($value<=$vcarr[1]){return $orange;}
+  elsif($type eq "qc"){
+    if($value<=$qcarr[0]){return $dodgerblue;}
+    elsif($value<=$qcarr[1]){return $orange;}
     else{return $red;}
   }
-  elsif($type eq "vl"){
-    if($value<=$vlarr[0]){return $dodgerblue;}
-    elsif($value<=$vlarr[1]){return $orange;}
+  elsif($type eq "ql"){
+    if($value<=$qlarr[0]){return $dodgerblue;}
+    elsif($value<=$qlarr[1]){return $orange;}
     else{return $red;}
   }
-  elsif($type eq "vg"){
-    if($value<=$vgarr[0]){return $dodgerblue;}
-    elsif($value<=$vgarr[1]){return $orange;}
+  elsif($type eq "qg"){
+    if($value<=$qgarr[0]){return $dodgerblue;}
+    elsif($value<=$qgarr[1]){return $orange;}
+    else{return $red;}
+  }
+  elsif($type eq "st") {
+    if($value<=$starr[0]){return $dodgerblue;}
+    elsif($value<=$starr[1]){return $orange;}
+    else{return $red;}
+  }
+  elsif($type eq "sc"){
+    if($value<=$scarr[0]){return $dodgerblue;}
+    elsif($value<=$scarr[1]){return $orange;}
+    else{return $red;}
+  }
+  elsif($type eq "sl"){
+    if($value<=$slarr[0]){return $dodgerblue;}
+    elsif($value<=$slarr[1]){return $orange;}
+    else{return $red;}
+  }
+  elsif($type eq "sg"){
+    if($value<=$sgarr[0]){return $dodgerblue;}
+    elsif($value<=$sgarr[1]){return $orange;}
     else{return $red;}
   }
 }
