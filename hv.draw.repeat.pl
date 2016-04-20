@@ -658,6 +658,12 @@ sub drawblock{
   my $type=$_[0];#what is it
   #get hot values
   foreach my $key (sort{$a<=>$b} keys %hash_merge){
+    # only selected chromosome;
+    my $is2skip1 = 1; my $is2skip2 = 1;
+    if($q_or_s eq "q"){for(my $i=0; $i<=$#querychr; $i++){if($key eq $querychr[$i]){$is2skip1 = 0; last;}}}
+    elsif($q_or_s eq "s"){for(my $i=0; $i<=$#sbjctchr; $i++){if($key eq $sbjctchr[$i]){$is2skip2 = 0; last;}}}
+    if($is2skip1 eq 1 || $is2skip2 eq 1){next;}
+    #get heat value
     for (my $i = 0; $i+1 < @{$hash_merge{$key}};$i+=2){
       $hash_cover{$key}{int(@{$hash_merge{$key}}[$i]/$myblock)+1}+=@{$hash_merge{$key}}[$i+1]-@{$hash_merge{$key}}[$i]+1;     
     }
