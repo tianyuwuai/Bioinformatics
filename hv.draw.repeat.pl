@@ -682,7 +682,9 @@ sub drawblock{
         my $posx1;
         if($querychr2order{$key} eq 0){$posx1 = $left_curb*1.25 + ($sec_key-1)*$myblock/$scale_ratio1;}
         else{$posx1 = $query_chro_pos[$querychr2order{$key}-1] + ($sec_key-1)*$myblock/$scale_ratio1;}
-        my $posx2=$posx1+$myblock/$scale_ratio1;
+        my $posx2;
+        if($sec_key*$myblock>$querychr2plen{$key}){$posx2=$query_chro_pos[$querychr2order{$key}];}
+        else{$posx2=$posx1+$myblock/$scale_ratio1;}
         $img -> filledRectangle($posx1,$top_curb*0.25+($index-1)*($lineheight+$linespacing),$posx2,$top_curb*0.25+($index-1)*($lineheight+$linespacing)+$lineheight,$color);
       }
       #sbjct
@@ -690,7 +692,9 @@ sub drawblock{
         my $posy1;
         if($sbjctchr2order{$key} eq 0){$posy1 = $top_curb*1.25 + ($sec_key-1)*$myblock/$scale_ratio2;}
         else{$posy1 = $sbjct_chro_pos[$sbjctchr2order{$key}-1] +  ($sec_key-1)*$myblock/$scale_ratio2;}
-        my $posy2=$posy1+$myblock/$scale_ratio2;
+        my $posy2;
+        if($sec_key*$myblock>$sbjctchr2plen{$key}){$posy2=$sbjct_chro_pos[$sbjctchr2order{$key}];}
+        else{$posy2=$posy1+$myblock/$scale_ratio2;}
         $img -> filledRectangle($left_curb*0.25+($index-1)*($columewidth+$linespacing),$posy1,$left_curb*0.25+($index-1)*($columewidth+$linespacing)+$columewidth,$posy2,$color);
       }
     }    
